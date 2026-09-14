@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SPECIALIST
+  MANAGER
+  ECAA
+  ADMIN
+}
+
+enum ApplicationStatus {
+  PENDING_MANAGER_APPROVAL
+  MANAGER_CHANGES_REQUESTED
+  MANAGER_APPROVED
+  WAITING_ECAA_APPROVAL
+  ECAA_CHANGES_REQUESTED
+  ECAA_APPROVED
+  CANCELLED
+}
+
+enum FleetKind {
+  OWNED
+  ACMI
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  applications      Application[]     @relation("CreatedBy")
+  activityLogs      ActivityLog[]
+}
+
+model PendingUserRequest {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  requestedAt  DateTime @default(now())
+}
+
+model Application {
+  id     String            @id // human request number e.g. CHR-2026-001
+  type   String
+  status ApplicationStatus @default(PENDING_MANAGER_APPROVAL)
+  saved  Boolean           @default(true)
+
+  createdById String
+  createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
+  preparedBy  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  managerApprovedBy String?
+  managerApprovedAt DateTime?
+  managerActionBy   String?
+  managerActionAt   DateTime?
+  managerNotes      String?
+  managerQueueEnteredAt DateTime?
+
+  ecaaActionBy String?
+  ecaaActionAt DateTime?
+  ecaaNotes    String?
+
+  approvalNumber  String?
+  stampUploadedAt DateTime?
+
+  // type-specific structured fields: meta, rows, countrySections, manualFleetRows,
+  // pickedFleetRows, aircraftBlocks, travelPages, travelProgramEnabled, travelProgram,
+  // comments, coverLetterText, salutationText, ecaaResponse
+  data Json @default("{}")
+
+  // workflow attachments: stampFile, ecaaApprovalFile, eSignature, ecaaESignature,
+  // supportingDocuments: [{url,name,mimeType,uploadedBy,uploadedAt}]
+  attachments Json @default("{}")
+
+  notificationReads Json @default("{}")
+
+  activityLogs ActivityLog[]
+
+  @@index([status])
+  @@index([type])
+}
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  requestId     String
+  formTitle     String
+  action        String
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName      String
+  createdAt     DateTime @default(now())
+}
+
+model FleetAircraft {
+  id           String    @id @default(cuid())
+  kind         FleetKind
+  type         String
+  registration String
+
+  @@unique([kind, registration])
+}
+
+model SpecialFleet {
+  id        String                @id @default(cuid())
+  name      String                @unique
+  order     Int                   @default(0)
+  aircraft  SpecialFleetAircraft[]
+}
+
+model SpecialFleetAircraft {
+  id             String       @id @default(cuid())
+  specialFleetId String
+  specialFleet   SpecialFleet @relation(fields: [specialFleetId], references: [id], onDelete: Cascade)
+  type           String
+  registration   String
+}
+
+model Country {
+  id      String @id @default(cuid())
+  nameEn  String @unique
+  nameAr  String
+  order   Int    @default(0)
+}
+
+model DomesticAirport {
+  id    String @id @default(cuid())
+  code  String @unique
+  name  String
+  order Int    @default(0)
+}
+
+model Settings {
+  id                        String    @id @default("singleton")
+  esigApproved              Boolean   @default(false)
+  companySignatureUrl       String?
+  companySignatureName      String?
+  companySignatureUploadedBy String?
+  companySignatureUploadedAt DateTime?
+}

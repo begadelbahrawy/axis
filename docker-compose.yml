@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: axis
+      POSTGRES_PASSWORD: axis
+      POSTGRES_DB: axis
+    volumes:
+      - axis_db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U axis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://axis:axis@db:5432/axis?schema=public
+      PORT: 4000
+      NODE_ENV: production
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: change-this-to-a-long-random-string
+      UPLOAD_DIR: uploads
+      PUBLIC_UPLOAD_PATH: /uploads
+      SEED_ADMIN_EMAIL: admin@aircairo.com
+      SEED_ADMIN_PASSWORD: ChangeMe123!
+      SEED_ADMIN_NAME: System Administrator
+    volumes:
+      - axis_uploads:/app/uploads
+    ports:
+      - "4000:4000"
+    command: sh -c "npx prisma migrate deploy && npm run seed && node dist/server.js"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  axis_db_data:
+  axis_uploads:
