@@ -17,8 +17,9 @@ import {
   twoLineDisplay,
   flightNoCellDisplay,
   daysDisplay,
+  combineRemarks,
 } from '../lib/workflow';
-import { travelProgramFlightData, bilingualDisplay, TRAVEL_FIXED_OPERATOR, TRAVEL_FIXED_HANDLING, NATIONALITY_MAP } from '../lib/travel';
+import { travelProgramFlightData, bilingualDisplay, TRAVEL_FIXED_OPERATOR, TRAVEL_FIXED_HANDLING, NATIONALITY_MAP, acTypesLabel } from '../lib/travel';
 import { useReferenceData, groupFleetRows } from '../hooks/useReferenceData';
 
 function FleetPreview({ rec, refData }: { rec: Application; refData: ReturnType<typeof useReferenceData> }) {
@@ -121,7 +122,7 @@ function TravelProgramPage({ rec, pageIdx }: { rec: Application; pageIdx: 0 | 1 
     countryLine = 'Egypt [مصر]';
     nationalityLine = 'Egyptian [مصري]';
   }
-  const acTypeLabel = tp.acType === 'Other' ? tp.acTypeOther || tp.acType : tp.acType;
+  const acTypeLabel = acTypesLabel(tp.acTypes || (tp.acType ? [tp.acType] : []), tp.acTypeOther);
   const hotel = isPage1 ? bilingualDisplay(tp.hotelPage1En, tp.hotelPage1Ar) : bilingualDisplay(tp.hotelPage2En, tp.hotelPage2Ar);
   const daysLabel = fd.days.en !== '—' ? `${fd.days.en} [${fd.days.ar}]` : '—';
 
@@ -425,7 +426,7 @@ export default function Preview() {
                     <td>{periodDateDisplay(r.periodTo) || '—'}</td>
                     <td>{twoLineDisplay(r.etdOut, r.etdRet)}</td>
                     <td>{twoLineDisplay(r.etaOut, r.etaRet)}</td>
-                    <td>{r.remarks}</td>
+                    <td>{combineRemarks(r.remarksOut, r.remarksRet)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -465,7 +466,7 @@ export default function Preview() {
                 <td>{periodDateDisplay(r.periodTo) || '—'}</td>
                 <td>{twoLineDisplay(r.etdDep, r.etdArr)}</td>
                 <td>{twoLineDisplay(r.etaDep, r.etaArr)}</td>
-                <td>{r.remarks}</td>
+                <td>{combineRemarks(r.remarksDep, r.remarksArr)}</td>
               </tr>
             ))}
           </tbody>
@@ -503,7 +504,7 @@ export default function Preview() {
                 <td>{periodDateDisplay(r.periodTo) || '—'}</td>
                 <td>{twoLineDisplay(r.etdOut, r.etdRet)}</td>
                 <td>{twoLineDisplay(r.etaOut, r.etaRet)}</td>
-                <td>{r.remarks}</td>
+                <td>{combineRemarks(r.remarksOut, r.remarksRet)}</td>
               </tr>
             ))}
           </tbody>

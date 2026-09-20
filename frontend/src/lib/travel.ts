@@ -65,7 +65,7 @@ export function emptyTravelProgramData() {
   return {
     egyptian: { nameEn: '', nameAr: '', phone: '', fax: '', email: '', address: '' },
     foreign: { nameEn: '', nameAr: '', phone: '', fax: '', email: '', address: '' },
-    acType: 'A320',
+    acTypes: ['A320'],
     acTypeOther: '',
     pax: AC_TYPE_PAX.A320,
     hotelPage1En: '',
@@ -73,6 +73,12 @@ export function emptyTravelProgramData() {
     hotelPage2En: '',
     hotelPage2Ar: '',
   };
+}
+
+export function acTypesLabel(acTypes: string[] | undefined, acTypeOther: string | undefined): string {
+  return (acTypes || [])
+    .map((t) => (t === 'Other' ? acTypeOther || 'Other' : t))
+    .join(' / ');
 }
 
 export function travelProgramFlightData(rows: any[]) {

@@ -53,3 +53,12 @@ export function daysDisplay(days?: string[]) {
   if (!days || !days.length) return '';
   return days.join(', ');
 }
+
+// Combines the outbound/return purpose (PAX/POS/FRY) into a single display
+// string — e.g. Out=PAX + Ret=FRY becomes "PAX / FRY". If both legs share the
+// same purpose it is shown once, e.g. "PAX".
+export function combineRemarks(a?: string, b?: string): string {
+  const x = a || 'PAX';
+  const y = b || 'PAX';
+  return x === y ? x : `${x} / ${y}`;
+}

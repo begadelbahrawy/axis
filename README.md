@@ -34,6 +34,27 @@ real, deployable, multi-user web application for Air Cairo's permit operations t
   Domestic Airports.
 - Print/Download hides all internal workflow elements (comments, action buttons, status banners) —
   only the official letter content, approval number, and signatures are ever in the printed output.
+- Each flight row has independent outbound/return purpose fields (`PAX`/`POS`/`FRY`), shown combined
+  (e.g. `PAX / FRY`) wherever a single value used to print; Travel Program supports selecting more
+  than one aircraft type, with the passenger count staying auto-filled only when exactly one standard
+  type is selected (ported from `axis-permits-system-v21.html`, see below).
+
+### Updating from v20 → v21 behavior (split purpose fields, multi-select aircraft type)
+
+Two application types (`FORM_TYPES[type].style`) store flight rows differently, so the purpose field
+was split per style: wide-style rows (Charter, Urgent Charter, Urgent Positioning/Private/Schedule) use
+`remarksDep`/`remarksArr`; simple-style rows (Domestic, ACMI, Maintenance, Private, Schedule, and every
+row inside a multi-country Season Schedule section) use `remarksOut`/`remarksRet`. Travel Program's
+`acType` became `acTypes: string[]`. Since flight rows and the travel program live in `Application.data`
+(a JSON column — see Architecture below), this doesn't need a SQL schema migration, but existing rows on
+the old single-value shape need a one-time data migration:
+
+```bash
+cd backend
+npm run migrate:remarks-actypes
+```
+
+Idempotent — re-running it only touches rows still on the old shape (checked via `prisma/migrate-remarks-actypes.ts`).
 
 ### Known simplifications vs. the prototype
 

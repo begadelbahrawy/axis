@@ -7,10 +7,10 @@ import { useReferenceData, groupFleetRows } from '../hooks/useReferenceData';
 import { AC_TYPE_PAX, emptyTravelProgramData } from '../lib/travel';
 
 function emptyWideRow() {
-  return { remarks: 'PAX', days: [] as string[], fromDep: '', toDep: '', flightNoDep: '', etdDep: '', etaDep: '', fromArr: '', toArr: '', flightNoArr: '', etdArr: '', etaArr: '', periodFrom: '', periodTo: '' };
+  return { remarksDep: 'PAX', remarksArr: 'PAX', days: [] as string[], fromDep: '', toDep: '', flightNoDep: '', etdDep: '', etaDep: '', fromArr: '', toArr: '', flightNoArr: '', etdArr: '', etaArr: '', periodFrom: '', periodTo: '' };
 }
 function emptySimpleRow() {
-  return { flightNoOut: '', etdOut: '', etaOut: '', fromOut: '', toOut: '', flightNoRet: '', etdRet: '', etaRet: '', fromRet: '', toRet: '', periodFrom: '', periodTo: '', days: [] as string[], remarks: 'PAX' };
+  return { flightNoOut: '', etdOut: '', etaOut: '', fromOut: '', toOut: '', flightNoRet: '', etdRet: '', etaRet: '', fromRet: '', toRet: '', periodFrom: '', periodTo: '', days: [] as string[], remarksOut: 'PAX', remarksRet: 'PAX' };
 }
 function emptyMeta() {
   return { countryEn: '', countryOther: '', seasonEn: '', lessorName: '', actionEn: '', isAdditional: false, year: String(new Date().getFullYear()), startDate: '', endDate: '' };
@@ -620,7 +620,12 @@ export default function NewApplication() {
                                     <input type="date" value={r.periodTo} onChange={(e) => updateSectionRow(sIdx, rIdx, 'periodTo', e.target.value)} />
                                   </td>
                                   <td>
-                                    <select value={r.remarks} onChange={(e) => updateSectionRow(sIdx, rIdx, 'remarks', e.target.value)}>
+                                    <select style={{ marginBottom: 2 }} value={r.remarksOut} onChange={(e) => updateSectionRow(sIdx, rIdx, 'remarksOut', e.target.value)}>
+                                      {REMARKS_TYPES.map((o) => (
+                                        <option key={o}>{o}</option>
+                                      ))}
+                                    </select>
+                                    <select value={r.remarksRet} onChange={(e) => updateSectionRow(sIdx, rIdx, 'remarksRet', e.target.value)}>
                                       {REMARKS_TYPES.map((o) => (
                                         <option key={o}>{o}</option>
                                       ))}
@@ -705,7 +710,12 @@ export default function NewApplication() {
                                 <input placeholder="Arr ETA" value={r.etaArr} onChange={(e) => updateRow(i, 'etaArr', e.target.value)} />
                               </td>
                               <td>
-                                <select value={r.remarks} onChange={(e) => updateRow(i, 'remarks', e.target.value)}>
+                                <select style={{ marginBottom: 2 }} value={r.remarksDep} onChange={(e) => updateRow(i, 'remarksDep', e.target.value)}>
+                                  {REMARKS_TYPES.map((o) => (
+                                    <option key={o}>{o}</option>
+                                  ))}
+                                </select>
+                                <select value={r.remarksArr} onChange={(e) => updateRow(i, 'remarksArr', e.target.value)}>
                                   {REMARKS_TYPES.map((o) => (
                                     <option key={o}>{o}</option>
                                   ))}
@@ -751,7 +761,12 @@ export default function NewApplication() {
                                 <input placeholder="Ret ETA" value={r.etaRet} onChange={(e) => updateRow(i, 'etaRet', e.target.value)} />
                               </td>
                               <td>
-                                <select value={r.remarks} onChange={(e) => updateRow(i, 'remarks', e.target.value)}>
+                                <select style={{ marginBottom: 2 }} value={r.remarksOut} onChange={(e) => updateRow(i, 'remarksOut', e.target.value)}>
+                                  {REMARKS_TYPES.map((o) => (
+                                    <option key={o}>{o}</option>
+                                  ))}
+                                </select>
+                                <select value={r.remarksRet} onChange={(e) => updateRow(i, 'remarksRet', e.target.value)}>
                                   {REMARKS_TYPES.map((o) => (
                                     <option key={o}>{o}</option>
                                   ))}
@@ -802,23 +817,33 @@ export default function NewApplication() {
                             Aircraft &amp; Hotel
                           </div>
                           <div className="field-grid">
-                            <div className="field">
-                              <label>A/C Type</label>
-                              <select
-                                value={travelProgram.acType}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  setTravelProgram((tp: any) => ({ ...tp, acType: value, pax: value !== 'Other' ? AC_TYPE_PAX[value] || '' : tp.pax }));
-                                }}
-                              >
+                            <div className="field full">
+                              <label>
+                                A/C Type <span style={{ fontWeight: 400, color: '#94a3b8' }}>(you can select more than one)</span>
+                              </label>
+                              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', padding: '6px 0' }}>
                                 {['A320', 'E190', 'ATR', 'Other'].map((t) => (
-                                  <option key={t} value={t}>
+                                  <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 400, cursor: 'pointer' }}>
+                                    <input
+                                      type="checkbox"
+                                      style={{ width: 15, height: 15 }}
+                                      checked={(travelProgram.acTypes || []).includes(t)}
+                                      onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setTravelProgram((tp: any) => {
+                                          const current: string[] = tp.acTypes || [];
+                                          const types = checked ? [...current.filter((x) => x !== t), t] : current.filter((x) => x !== t);
+                                          const pax = types.length === 1 && types[0] !== 'Other' ? AC_TYPE_PAX[types[0]] || '' : tp.pax;
+                                          return { ...tp, acTypes: types, pax };
+                                        });
+                                      }}
+                                    />
                                     {t}
-                                  </option>
+                                  </label>
                                 ))}
-                              </select>
+                              </div>
                             </div>
-                            {travelProgram.acType === 'Other' && (
+                            {(travelProgram.acTypes || []).includes('Other') && (
                               <div className="field">
                                 <label>Custom aircraft type</label>
                                 <input value={travelProgram.acTypeOther} placeholder="e.g. B737" onChange={(e) => setTravelProgram((tp: any) => ({ ...tp, acTypeOther: e.target.value }))} />
@@ -826,10 +851,10 @@ export default function NewApplication() {
                             )}
                             <div className="field">
                               <label>No. of Pax</label>
-                              {travelProgram.acType === 'Other' ? (
-                                <input value={travelProgram.pax} placeholder="Enter pax count" onChange={(e) => setTravelProgram((tp: any) => ({ ...tp, pax: e.target.value }))} />
-                              ) : (
+                              {(travelProgram.acTypes || []).length === 1 && (travelProgram.acTypes || [])[0] !== 'Other' ? (
                                 <input value={travelProgram.pax} disabled style={{ background: '#f8fafc', color: '#94a3b8' }} />
+                              ) : (
+                                <input value={travelProgram.pax} placeholder="Enter pax count" onChange={(e) => setTravelProgram((tp: any) => ({ ...tp, pax: e.target.value }))} />
                               )}
                             </div>
                             <div className="field">
