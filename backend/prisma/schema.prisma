@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SPECIALIST
+  MANAGER
+  ECAA
+  ADMIN
+}
+
+// No CANCELLED state: cancelling an application hard-deletes it (see Section 5D
+// of the build spec) instead of transitioning its status.
+enum ApplicationStatus {
+  PENDING_MANAGER_APPROVAL
+  MANAGER_CHANGES_REQUESTED
+  MANAGER_APPROVED
+  WAITING_ECAA_APPROVAL
+  ECAA_CHANGES_REQUESTED
+  ECAA_APPROVED
+}
+
+enum FleetKind {
+  OWNED
+  ACMI
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  applications      Application[]     @relation("CreatedBy")
+  activityLogs      ActivityLog[]
+  resetTokens       PasswordResetToken[]
+  loginAttempts     LoginAttempt[]
+}
+
+model PendingUserRequest {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  requestedAt  DateTime @default(now())
+}
+
+// Hashed, expiring, single-use password reset tokens. The raw token is emailed
+// to the user and never stored — only its SHA-256 hash is persisted, so a
+// leaked database row can't be replayed as a valid reset link.
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Minimal login-attempt log backing a sliding-window rate limit per email+IP,
+// independent of the in-memory express-rate-limit (which only covers one
+// process) so brute-forcing survives a restart being attempted again.
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ip        String
+  success   Boolean
+  createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+}
+
+// Atomic per-(type, year) sequence for Request No. allocation (TYPE-YEAR-SEQ).
+// Allocated via a single `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`
+// statement (see lib/requestId.ts) so concurrent confirmations never collide
+// or skip, and an abandoned preview never consumes a number (nothing is
+// allocated until the user presses Confirm & Generate).
+model RequestSequence {
+  type        String
+  year        Int
+  lastValue   Int      @default(0)
+
+  @@id([type, year])
+}
+
+model Application {
+  id     String            @id // human request number e.g. CHR-2026-001
+  type   String
+  status ApplicationStatus @default(PENDING_MANAGER_APPROVAL)
+
+  createdById String
+  createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
+  preparedBy  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  managerApprovedBy String?
+  managerApprovedAt DateTime?
+  managerActionBy   String?
+  managerActionAt   DateTime?
+  managerNotes      String?
+  managerQueueEnteredAt DateTime?
+
+  ecaaActionBy String?
+  ecaaActionAt DateTime?
+  ecaaNotes    String?
+
+  approvalNumber  String?
+  stampUploadedAt DateTime?
+
+  // type-specific structured fields: meta, rows (with remarksOut/remarksRet or
+  // remarksDep/remarksArr per form style), countrySections, manualFleetRows,
+  // pickedFleetRows, aircraftBlocks, travelProgramEnabled, travelProgram
+  // (acTypes: string[]), comments, coverLetterText, salutationText, ecaaResponse
+  data Json @default("{}")
+
+  // workflow attachments: stampFile, ecaaApprovalFile, eSignature, ecaaESignature,
+  // supportingDocuments: [{url,name,mimeType,uploadedBy,uploadedAt}]
+  attachments Json @default("{}")
+
+  notificationReads Json @default("{}")
+
+  activityLogs ActivityLog[]
+
+  @@index([status])
+  @@index([type])
+}
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  requestId     String
+  formTitle     String
+  action        String
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName      String
+  createdAt     DateTime @default(now())
+}
+
+model FleetAircraft {
+  id           String    @id @default(cuid())
+  kind         FleetKind
+  type         String
+  registration String
+
+  @@unique([kind, registration])
+}
+
+model SpecialFleet {
+  id        String                @id @default(cuid())
+  name      String                @unique
+  order     Int                   @default(0)
+  aircraft  SpecialFleetAircraft[]
+}
+
+model SpecialFleetAircraft {
+  id             String       @id @default(cuid())
+  specialFleetId String
+  specialFleet   SpecialFleet @relation(fields: [specialFleetId], references: [id], onDelete: Cascade)
+  type           String
+  registration   String
+}
+
+model Country {
+  id      String @id @default(cuid())
+  nameEn  String @unique
+  nameAr  String
+  order   Int    @default(0)
+}
+
+model DomesticAirport {
+  id    String @id @default(cuid())
+  code  String @unique
+  name  String
+  order Int    @default(0)
+}
+
+model Settings {
+  id                        String    @id @default("singleton")
+  esigApproved              Boolean   @default(false)
+  companySignatureUrl       String?
+  companySignatureName      String?
+  companySignatureUploadedBy String?
+  companySignatureUploadedAt DateTime?
+}
